@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Timeline Ultimate</title>
+<title>Timeline Ultimate Online</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;500;700&display=swap" rel="stylesheet">
 
@@ -11,56 +11,52 @@
 body{
 margin:0;
 font-family:'Prompt',sans-serif;
-background:linear-gradient(135deg,#dbeafe,#fce7f3);
+background:linear-gradient(135deg,#e0f2fe,#fce7f3);
 }
-
 .container{
-max-width:1100px;
+max-width:1000px;
 margin:auto;
 padding:20px;
 }
-
 .glass{
 background:rgba(255,255,255,0.6);
 backdrop-filter:blur(20px);
 border-radius:25px;
 padding:20px;
+margin-bottom:20px;
 box-shadow:0 20px 40px rgba(0,0,0,0.1);
 }
-
+.card{
+background:white;
+padding:15px;
+border-radius:18px;
+box-shadow:0 8px 20px rgba(0,0,0,0.08);
+cursor:grab;
+}
 .timeline{
 display:flex;
 gap:10px;
 overflow-x:auto;
-padding:15px 0;
+padding:10px 0;
 }
-
-.card{
-min-width:180px;
-padding:15px;
-border-radius:18px;
-background:white;
-box-shadow:0 10px 20px rgba(0,0,0,0.08);
-cursor:grab;
-}
-
-.dropzone{
-min-width:40px;
-border:2px dashed #bbb;
-border-radius:12px;
-}
-
-.scoreboard{
-display:flex;
-gap:10px;
-flex-wrap:wrap;
-}
-
 .player{
 background:white;
-padding:10px 15px;
+padding:8px 15px;
 border-radius:15px;
-box-shadow:0 6px 15px rgba(0,0,0,0.08);
+margin:5px;
+}
+button{
+padding:10px 15px;
+border:none;
+border-radius:12px;
+background:#6366f1;
+color:white;
+cursor:pointer;
+}
+input{
+padding:8px;
+border-radius:10px;
+border:1px solid #ccc;
 }
 </style>
 </head>
@@ -68,7 +64,14 @@ box-shadow:0 6px 15px rgba(0,0,0,0.08);
 
 <div class="container">
 
-<h1>🎴 Timeline Ultimate</h1>
+<div id="lobby" class="glass">
+<h2>🎲 เข้าห้อง</h2>
+<input id="name" placeholder="ชื่อผู้เล่น">
+<input id="room" placeholder="รหัสห้อง">
+<button onclick="joinRoom()">เข้าห้อง</button>
+</div>
+
+<div id="game" style="display:none;">
 
 <div class="glass">
 <h2>การ์ดของคุณ</h2>
@@ -82,34 +85,59 @@ box-shadow:0 6px 15px rgba(0,0,0,0.08);
 
 <div class="glass">
 <h2>คะแนน</h2>
-<div id="scores" class="scoreboard"></div>
+<div id="scores"></div>
 </div>
 
 </div>
 
-<script>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* 🔥 ใส่ firebaseConfig ของคุณ */
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_ID",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 let events=[]
 let timeline=[]
-let players=[
-{name:"Player1",score:0},
-{name:"Player2",score:0}
-]
+let playerName
+let roomId
 let currentPlayer=0
 
 async function loadEvents(){
 const res=await fetch("events.json")
 events=await res.json()
-startGame()
 }
 
 function randomEvent(){
 return events[Math.floor(Math.random()*events.length)]
 }
 
-function startGame(){
+window.joinRoom=async function(){
+playerName=document.getElementById("name").value
+roomId=document.getElementById("room").value
+
+document.getElementById("lobby").style.display="none"
+document.getElementById("game").style.display="block"
+
+set(ref(db,'rooms/'+roomId+'/players/'+playerName),{score:0})
+
+loadEvents()
 drawCard()
-renderScores()
+syncRoom()
 }
 
 function drawCard(){
@@ -119,26 +147,34 @@ card.innerHTML=e.title
 card.dataset.year=e.year
 }
 
-function renderTimeline(){
-let container=document.getElementById("timeline")
-container.innerHTML=""
-
-timeline.sort((a,b)=>a.year-b.year)
-
-timeline.forEach(e=>{
-let div=document.createElement("div")
-div.className="card"
-div.innerHTML=e.title+"<br><b>"+e.year+"</b>"
-container.appendChild(div)
+function syncRoom(){
+onValue(ref(db,'rooms/'+roomId),(snapshot)=>{
+let data=snapshot.val()
+if(data?.timeline){
+timeline=data.timeline
+renderTimeline()
+}
+if(data?.players){
+renderScores(data.players)
+}
 })
 }
 
-function renderScores(){
+function renderTimeline(){
+let container=document.getElementById("timeline")
+container.innerHTML=""
+timeline.sort((a,b)=>a.year-b.year)
+timeline.forEach(e=>{
+container.innerHTML+=`<div class="card">${e.title}<br><b>${e.year}</b></div>`
+})
+}
+
+function renderScores(players){
 let s=document.getElementById("scores")
 s.innerHTML=""
-players.forEach(p=>{
-s.innerHTML+=`<div class="player">${p.name}: ${p.score}</div>`
-})
+for(let p in players){
+s.innerHTML+=`<div class="player">${p}: ${players[p].score}</div>`
+}
 }
 
 document.getElementById("currentCard").addEventListener("dragstart",(e)=>{
@@ -148,35 +184,17 @@ year:e.target.dataset.year
 }))
 })
 
-document.getElementById("timeline").addEventListener("dragover",(e)=>{
-e.preventDefault()
-})
+document.getElementById("timeline").addEventListener("dragover",(e)=>{e.preventDefault()})
 
 document.getElementById("timeline").addEventListener("drop",(e)=>{
 e.preventDefault()
 let data=JSON.parse(e.dataTransfer.getData("text/plain"))
-let correct=true
-
-for(let t of timeline){
-if(data.year < t.year){
-correct=false
-}
-}
-
-if(correct){
-players[currentPlayer].score++
 timeline.push(data)
-renderTimeline()
-}else{
-alert("❌ วางผิดลำดับ!")
-}
-
-currentPlayer=(currentPlayer+1)%players.length
+set(ref(db,'rooms/'+roomId+'/timeline'),timeline)
+set(ref(db,'rooms/'+roomId+'/players/'+playerName+'/score'),
+Math.floor(Math.random()*5)+1)
 drawCard()
-renderScores()
 })
-
-loadEvents()
 
 </script>
 
