@@ -1,0 +1,12 @@
+Generate 1000 real historical events from 3000 BC to 2025 AD in JSON format:
+[
+ { "title":"...", "year":1234 }
+]
+Include:
+- World history
+- Asia history
+- Thailand history
+- Science
+- Technology
+- Pop culture
+No duplicates.
