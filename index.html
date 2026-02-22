@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timeline Ultimate</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;500;700&display=swap" rel="stylesheet">
+
+<style>
+body{
+margin:0;
+font-family:'Prompt',sans-serif;
+background:linear-gradient(135deg,#dbeafe,#fce7f3);
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+padding:20px;
+}
+
+.glass{
+background:rgba(255,255,255,0.6);
+backdrop-filter:blur(20px);
+border-radius:25px;
+padding:20px;
+box-shadow:0 20px 40px rgba(0,0,0,0.1);
+}
+
+.timeline{
+display:flex;
+gap:10px;
+overflow-x:auto;
+padding:15px 0;
+}
+
+.card{
+min-width:180px;
+padding:15px;
+border-radius:18px;
+background:white;
+box-shadow:0 10px 20px rgba(0,0,0,0.08);
+cursor:grab;
+}
+
+.dropzone{
+min-width:40px;
+border:2px dashed #bbb;
+border-radius:12px;
+}
+
+.scoreboard{
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+}
+
+.player{
+background:white;
+padding:10px 15px;
+border-radius:15px;
+box-shadow:0 6px 15px rgba(0,0,0,0.08);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>🎴 Timeline Ultimate</h1>
+
+<div class="glass">
+<h2>การ์ดของคุณ</h2>
+<div id="currentCard" class="card" draggable="true"></div>
+</div>
+
+<div class="glass">
+<h2>Timeline</h2>
+<div id="timeline" class="timeline"></div>
+</div>
+
+<div class="glass">
+<h2>คะแนน</h2>
+<div id="scores" class="scoreboard"></div>
+</div>
+
+</div>
+
+<script>
+
+let events=[]
+let timeline=[]
+let players=[
+{name:"Player1",score:0},
+{name:"Player2",score:0}
+]
+let currentPlayer=0
+
+async function loadEvents(){
+const res=await fetch("events.json")
+events=await res.json()
+startGame()
+}
+
+function randomEvent(){
+return events[Math.floor(Math.random()*events.length)]
+}
+
+function startGame(){
+drawCard()
+renderScores()
+}
+
+function drawCard(){
+let e=randomEvent()
+let card=document.getElementById("currentCard")
+card.innerHTML=e.title
+card.dataset.year=e.year
+}
+
+function renderTimeline(){
+let container=document.getElementById("timeline")
+container.innerHTML=""
+
+timeline.sort((a,b)=>a.year-b.year)
+
+timeline.forEach(e=>{
+let div=document.createElement("div")
+div.className="card"
+div.innerHTML=e.title+"<br><b>"+e.year+"</b>"
+container.appendChild(div)
+})
+}
+
+function renderScores(){
+let s=document.getElementById("scores")
+s.innerHTML=""
+players.forEach(p=>{
+s.innerHTML+=`<div class="player">${p.name}: ${p.score}</div>`
+})
+}
+
+document.getElementById("currentCard").addEventListener("dragstart",(e)=>{
+e.dataTransfer.setData("text/plain",JSON.stringify({
+title:e.target.innerText,
+year:e.target.dataset.year
+}))
+})
+
+document.getElementById("timeline").addEventListener("dragover",(e)=>{
+e.preventDefault()
+})
+
+document.getElementById("timeline").addEventListener("drop",(e)=>{
+e.preventDefault()
+let data=JSON.parse(e.dataTransfer.getData("text/plain"))
+let correct=true
+
+for(let t of timeline){
+if(data.year < t.year){
+correct=false
+}
+}
+
+if(correct){
+players[currentPlayer].score++
+timeline.push(data)
+renderTimeline()
+}else{
+alert("❌ วางผิดลำดับ!")
+}
+
+currentPlayer=(currentPlayer+1)%players.length
+drawCard()
+renderScores()
+})
+
+loadEvents()
+
+</script>
+
+</body>
+</html>
